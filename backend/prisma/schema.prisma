@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String            @id @default(uuid())
+  keycloak_id      String            @unique
+  email            String            @unique
+  role             String            @default("USER") // ADMIN or USER
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  subscriptions    Subscription[]
+  notificationLogs NotificationLog[]
+  powerCutsCreated PowerCut[]
+}
+
+model PowerCut {
+  id               String            @id @default(uuid())
+  area             String
+  date             DateTime          @db.Date
+  start_time       String
+  end_time         String
+  reason           String?
+  created_by       String
+  creator          User              @relation(fields: [created_by], references: [id])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  notificationLogs NotificationLog[]
+
+  @@index([area, date])
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  user_id   String
+  user      User     @relation(fields: [user_id], references: [id])
+  area      String
+  createdAt DateTime @default(now())
+
+  @@unique([user_id, area])
+}
+
+model NotificationLog {
+  id           String   @id @default(uuid())
+  user_id      String
+  user         User     @relation(fields: [user_id], references: [id])
+  power_cut_id String
+  power_cut    PowerCut @relation(fields: [power_cut_id], references: [id])
+  status       String   // e.g., SENT, FAILED
+  sent_at      DateTime @default(now())
+}
