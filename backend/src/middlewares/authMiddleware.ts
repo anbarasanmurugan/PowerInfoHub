@@ -12,14 +12,18 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
     if (authHeader) {
         const token = authHeader.split(' ')[1];
 
-        if (!process.env.KEYCLOAK_PUBLIC_KEY) {
-            console.warn("KEYCLOAK_PUBLIC_KEY not set in env. Proceeding with dummy check. ONLY FOR DEV.");
+        const isPlaceholder = !process.env.KEYCLOAK_PUBLIC_KEY || process.env.KEYCLOAK_PUBLIC_KEY.includes('YOUR_REALM_PUBLIC_KEY');
+
+        if (isPlaceholder) {
+            console.warn("KEYCLOAK_PUBLIC_KEY not set or is placeholder. Using jwt.decode (DEV ONLY).");
             try {
                 const decoded = jwt.decode(token);
+                if (!decoded) throw new Error("Could not decode token");
                 req.user = decoded;
                 return next();
             } catch (err) {
-                return res.sendStatus(403);
+                console.error("Token decode failed:", err);
+                return res.status(403).json({ message: 'Invalid token structure' });
             }
         }
 
@@ -27,7 +31,8 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
 
         jwt.verify(token, publicKey, { algorithms: ['RS256'] }, (err, user) => {
             if (err) {
-                return res.status(403).json({ message: 'Invalid or expired token' });
+                console.error("JWT Verification Error:", err.message);
+                return res.status(403).json({ message: 'Invalid or expired token', detail: err.message });
             }
             req.user = user;
             next();
